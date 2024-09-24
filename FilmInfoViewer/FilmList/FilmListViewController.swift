@@ -7,15 +7,13 @@
 
 import UIKit
 
-class FilmListViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+class FilmListViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, FilmListViewProtocol {
+	
 	@IBOutlet weak var filmList: UITableView!
 	@IBOutlet weak var bottomButton: UIButton!
-	
-	let filmService = FilmInfoService()
-	let toFilmDetailsSegueID = "toFilmDetails"
-	
-	var myFilms = [Film]()
-	var selectedFilmIndex: Int?
+
+	var uiDelegate: FilmListUIDelegate?
+	var myFilms = [FilmListPresentation.FilmPresentation]()
 	
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -25,17 +23,14 @@ class FilmListViewController: UIViewController, UITableViewDelegate, UITableView
 
 		filmList.delegate = self
 		filmList.dataSource = self
-		filmList.register(UINib(nibName: "FilmListCell", bundle: nil), forCellReuseIdentifier: FilmListCell.name)
+		filmList.register(UINib(nibName: FilmListCell.name, bundle: nil), forCellReuseIdentifier: FilmListCell.name)
 		filmList.separatorInset = .zero
 		
 		bottomButton.setTitle("Load more", for: .normal)
 		bottomButton.isHidden = true
-		
+
 		Task {
-			let filmListResponse = await filmService.getSavedFilms()
-			myFilms = filmListResponse.films
-			filmList.reloadData()
-			bottomButton.isHidden = !filmListResponse.hasMore
+			await uiDelegate?.viewDidLoad()
 		}
 	}
 	
@@ -53,16 +48,13 @@ class FilmListViewController: UIViewController, UITableViewDelegate, UITableView
 	}
 	
 	func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-		selectedFilmIndex = indexPath.row
-		performSegue(withIdentifier: toFilmDetailsSegueID, sender: nil)
+		uiDelegate?.didTapFilm(at: indexPath.row)
 	}
-
-	override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-		if segue.identifier == toFilmDetailsSegueID {
-			if let detailsController = segue.destination as? FilmDetailsViewController,
-				let selectedFilmIndex {
-				detailsController.film = myFilms[selectedFilmIndex]
-			}
-		}
+	
+	func prepare(with presentation: FilmListPresentation) {
+		myFilms = presentation.films
+		filmList.reloadData()
+		
+		bottomButton.isHidden = presentation.hideBottomButton
 	}
 }
